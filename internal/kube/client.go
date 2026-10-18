@@ -142,7 +142,15 @@ func newIAMTokenSource(cfg aws.Config, cluster string) (iamTokenSource, error) {
 	if err != nil {
 		return iamTokenSource{}, fmt.Errorf("creating the IAM token generator: %w", err)
 	}
-	return iamTokenSource{generator: generator, sts: sts.NewFromConfig(cfg), cluster: cluster}, nil
+	// The node's cluster-auth token is a presigned sts:GetCallerIdentity that the EKS
+	// API server validates by its host, so it has to target the real regional STS.
+	// AWS_ENDPOINT_URL_STS points the workload identity calls (certificate, JWT, trust
+	// bundle) at a test stack, and the SDK would apply it here too; a token signed
+	// against an STS host the API server does not recognise is rejected as
+	// Unauthorized. Clearing BaseEndpoint scopes that override to the workload
+	// identity client.
+	stsClient := sts.NewFromConfig(cfg, func(o *sts.Options) { o.BaseEndpoint = nil })
+	return iamTokenSource{generator: generator, sts: stsClient, cluster: cluster}, nil
 }
 
 // iamTokenSource signs a fresh token on every call with aws-iam-authenticator's
