@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
@@ -158,7 +160,30 @@ type workloadIdentityTiers struct {
 // newWorkloadIdentityTiers builds the tiers over clients and a new STS client.
 func newWorkloadIdentityTiers(opts handlers.WorkloadIdentityServerOpts,
 	clients *workloadIdentityClients) (*workloadIdentityTiers, error) {
-	return buildWorkloadIdentityTiers(opts, clients, sts.NewService(opts.Cfg))
+	return buildWorkloadIdentityTiers(opts, clients, sts.NewService(stsConfig(opts.Cfg)))
+}
+
+// stsSigningRegionEnvVar names the region the STS client signs for, overriding the
+// agent's own.
+//
+// It is for integration testing against an STS stack that serves a region other than
+// the cluster's: AWS_ENDPOINT_URL_STS moves the endpoint, but the SDK keeps signing for
+// the configured region, and such a stack rejects that credential scope with
+// SignatureDoesNotMatch. Leave it unset in production, where the regional STS endpoint
+// already matches AWS_REGION.
+const stsSigningRegionEnvVar = "STS_SIGNING_REGION"
+
+// stsConfig is cfg with that override applied. Only the STS client is built from the
+// result, so EKS Auth keeps signing for the cluster's own region.
+func stsConfig(cfg aws.Config) aws.Config {
+	region := os.Getenv(stsSigningRegionEnvVar)
+	if region == "" {
+		return cfg
+	}
+	logger.FromContext(context.Background()).Infof("Overriding the STS signing region %s with %s",
+		cfg.Region, region)
+	cfg.Region = region
+	return cfg
 }
 
 // buildWorkloadIdentityTiers is newWorkloadIdentityTiers past the STS client, so
