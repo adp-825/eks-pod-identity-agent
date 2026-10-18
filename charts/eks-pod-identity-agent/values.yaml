@@ -111,6 +111,18 @@ affinity:
 agent:
   additionalArgs:
     "-v": "trace"
+    # Integration testing against the beta EKS Auth stack. Note this also sets
+    # EndpointOverridden, which skips service account token audience validation
+    # (internal/validation/claims_validation.go), so a token scoped to another
+    # consumer is accepted here. Acceptable on a test cluster only; remove to
+    # go back to the regional EKS Auth endpoint and restore that check.
+    "--endpoint": "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+    # Integration testing: the WorkloadSession is chained and so capped at 1h, and
+    # STS refuses a JWT-SVID outlasting the session that signed it
+    # (SessionDurationEscalationException), which the 1h default always does once
+    # any of the session is spent. Ask for less until the clamping question is
+    # settled; see tasks/.../pod-identity-agent/integration-findings.md.
+    "--jwt-svid-duration": "30m"
   advertiseProxyPort: true
   command: "['/go-runner', '/eks-pod-identity-agent', 'server']"
   livenessEndpoint: /healthz
@@ -134,6 +146,18 @@ clusterName: EKS_CLUSTER_NAME
 
 env:
   AWS_REGION: AWS_REGION_NAME
+  # Integration testing against the alt gamma STS stack. The SDK reads this in
+  # awssts.NewFromConfig's resolveBaseEndpoint, so it redirects only STS — the
+  # certificate, JWT and trust bundle calls — and leaves EKS Auth on its own
+  # endpoint. Remove to go back to the regional sts.<region>.amazonaws.com.
+  AWS_ENDPOINT_URL_STS: https://sts-alt-gamma.us-east-1.api.aws
+  # Integration testing against the alt gamma STS stack, which serves us-east-1
+  # while the cluster is us-west-2. Overriding the endpoint does not move the
+  # signing region, and that stack rejects a us-west-2 credential scope with
+  # SignatureDoesNotMatch, so name the region it serves. Read only by the STS
+  # client, so EKS Auth keeps signing for the cluster's region. Remove with
+  # AWS_ENDPOINT_URL_STS.
+  STS_SIGNING_REGION: us-east-1
 
 fullnameOverride: "eks-pod-identity-agent"
 

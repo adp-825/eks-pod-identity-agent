@@ -23,6 +23,15 @@ import (
 // certificate request. The name is fixed by RFC 7468.
 const pemTypeCertificateRequest = "CERTIFICATE REQUEST"
 
+// csrPlaceholderCommonName is a stand-in subject carried only to work around an STS
+// defect: GetWorkloadIdentityCertificate currently fails on a CSR with an empty subject,
+// reporting its own minted certificate as unparseable, so no certificate can be issued at
+// all.
+//
+// TODO(workload-identity): drop this and go back to an empty subject once the STS fix
+// ships. Nothing else in the agent depends on it.
+const csrPlaceholderCommonName = "eks-pod-identity-agent"
+
 // generateKey creates a new key pair of the configured kind for one certificate.
 //
 // It returns a crypto.Signer rather than the key, because a Signer does not expose the
@@ -64,11 +73,13 @@ func rsaKey(bits int, kind workloadidentity.KeyType) (crypto.Signer, error) {
 // buildCSR creates the certificate request we send to STS. It carries the public half of
 // the key pair and a signature made with the private half, which proves possession.
 //
-// It carries no name. STS takes the subject from the attested workload identity in the
-// session, and ignores any subject or SAN in the request.
+// The subject is a placeholder, not a name we are asking for. STS takes the subject from
+// the attested workload identity in the session and ignores anything named here; the
+// value is present only because an empty subject currently fails issuance outright. See
+// csrPlaceholderCommonName.
 func buildCSR(key crypto.Signer) (string, error) {
 	der, err := cryptox509.CreateCertificateRequest(rand.Reader, &cryptox509.CertificateRequest{
-		Subject: pkix.Name{},
+		Subject: pkix.Name{CommonName: csrPlaceholderCommonName},
 	}, key)
 	if err != nil {
 		return "", fmt.Errorf("building the certificate signing request: %w", err)

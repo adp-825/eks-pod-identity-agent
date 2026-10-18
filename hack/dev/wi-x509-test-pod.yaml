@@ -1,0 +1,59 @@
+---
+# Workload identity X.509-SVID probe pod, the sibling of wi-test-pod.yaml.
+# Dev tooling for hack/dev.
+#
+# The SPIFFE socket and its env var are declared here explicitly rather than
+# left to the Pod Identity webhook, so the test does not depend on the webhook
+# injecting them. The skip label below turns the webhook off for this pod, which
+# also avoids it trying to add a second volume of the same name.
+#
+# Nothing here listens on the network: the pod dials the agent's Unix socket.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: wi-x509-test
+  namespace: wise-integ-testing-1
+  labels:
+    app: wi-x509-test
+    # The webhook's objectSelector is "this key DoesNotExist", so any value here
+    # makes admission skip the pod. Safe for workload identity: the agent attests
+    # the pod and mints its ServiceAccount token itself, so nothing on the X.509
+    # path needs webhook-injected credentials.
+    eks.amazonaws.com/skip-pod-identity-webhook: "true"
+spec:
+  # The association is on this ServiceAccount, which is what EKS Auth vends for.
+  serviceAccountName: wise-testing-sa-1
+  # Only this node runs the patched agent and its CSI plugin.
+  nodeSelector:
+    pia-test: "true"
+  restartPolicy: Never
+  containers:
+    - name: wi-x509-client
+      image: 282293003521.dkr.ecr.us-west-2.amazonaws.com/eks/eks-pod-identity-agent:wi-x509-client-2
+      imagePullPolicy: Always
+      env:
+        # The webhook would inject this with the unix:// scheme prepended to
+        # configuration.WorkloadIdentitySocketPath. Done by hand here. No
+        # audience: an X.509-SVID has none.
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///var/run/secrets/pods.eks.amazonaws.com/workloadidentity/agent.sock
+      volumeMounts:
+        # configuration.WorkloadIdentitySocketMountPath: the directory holding the
+        # socket, not the socket itself, so the agent can rebind without breaking
+        # this mount.
+        - name: eks-workload-identity-socket
+          mountPath: /var/run/secrets/pods.eks.amazonaws.com/workloadidentity
+          readOnly: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+  volumes:
+    # configuration.WorkloadIdentitySocketVolumeName. csi.readOnly must be true:
+    # spiffe-csi rejects the publish otherwise ("pod.spec.volumes[].csi.readOnly
+    # must be set to 'true'"), and it only serves ephemeral inline volumes.
+    - name: eks-workload-identity-socket
+      csi:
+        driver: spiffe.csi.eks.amazonaws.com
+        readOnly: true

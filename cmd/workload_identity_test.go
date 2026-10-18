@@ -727,3 +727,24 @@ func TestWorkloadIdentityClients_TheSessionTierAndTheCredentialCacheShareOneMint
 	g.Expect(token).To(Equal(minted[0]), "the cache's source must be served from the token cache the tier filled")
 	g.Expect(client.tokenRequests()).To(HaveLen(1), "no second TokenRequest")
 }
+
+// TestStsConfig_Unset_KeepsTheAgentsRegion pins the production shape: with no
+// override the STS client signs for the region the agent is configured with.
+func TestStsConfig_Unset_KeepsTheAgentsRegion(t *testing.T) {
+	t.Setenv(stsSigningRegionEnvVar, "")
+
+	cfg := stsConfig(logger.FromContext(t.Context()), aws.Config{Region: "us-west-2"})
+
+	NewWithT(t).Expect(cfg.Region).To(Equal("us-west-2"))
+}
+
+// TestStsConfig_Set_SignsForThatRegion proves the override reaches the STS
+// client, so an endpoint override pointing at another region's stack can be
+// signed for the region that stack serves.
+func TestStsConfig_Set_SignsForThatRegion(t *testing.T) {
+	t.Setenv(stsSigningRegionEnvVar, "us-east-1")
+
+	cfg := stsConfig(logger.FromContext(t.Context()), aws.Config{Region: "us-west-2"})
+
+	NewWithT(t).Expect(cfg.Region).To(Equal("us-east-1"))
+}

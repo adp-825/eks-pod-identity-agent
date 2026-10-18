@@ -93,10 +93,11 @@ func TestGenerateKeyRejectsAnUnknownType(t *testing.T) {
 		"the error has to name the types an operator can choose instead")
 }
 
-// TestBuildCSRCarriesNothingButTheKey is the definition-of-done assertion on the
-// request: it carries a public key and a proof of possession, and nothing that
-// could be read as the agent naming an identity.
-func TestBuildCSRCarriesNothingButTheKey(t *testing.T) {
+// TestBuildCSRCarriesNothingButTheKeyAndAPlaceholderSubject is the definition-of-done
+// assertion on the request: it carries a public key, a proof of possession, and an inert
+// placeholder subject (the STS-defect workaround, see csrPlaceholderCommonName) — and
+// nothing that could be read as the agent naming an identity.
+func TestBuildCSRCarriesNothingButTheKeyAndAPlaceholderSubject(t *testing.T) {
 	key, err := generateKey(workloadidentity.DefaultKeyType)
 	require.NoError(t, err)
 
@@ -114,7 +115,12 @@ func TestBuildCSRCarriesNothingButTheKey(t *testing.T) {
 	assert.NoError(t, csr.CheckSignature(), "the request has to prove possession of the key")
 	assert.Equal(t, key.Public(), csr.PublicKey, "the request has to carry this issuance's public key")
 
-	assert.Empty(t, csr.Subject.String(), "a populated subject would be discarded by STS and would mislead a reader into thinking the agent picks the identity")
+	assert.Equal(t, "CN="+csrPlaceholderCommonName, csr.Subject.String(),
+		"the subject is a placeholder for the STS defect and has to stay one: a workload's identity must never appear here")
+	assert.NotContains(t, csrPlaceholderCommonName, "spiffe://",
+		"the placeholder must not be an identity")
+	assert.Empty(t, csr.Subject.Organization, "the placeholder is a common name and nothing else")
+	assert.Empty(t, csr.Subject.OrganizationalUnit, "the placeholder is a common name and nothing else")
 	assert.Empty(t, csr.Extensions, "the request carries no extensions")
 	assert.Empty(t, csr.ExtraExtensions, "the request carries no extensions")
 	assert.Empty(t, csr.DNSNames)

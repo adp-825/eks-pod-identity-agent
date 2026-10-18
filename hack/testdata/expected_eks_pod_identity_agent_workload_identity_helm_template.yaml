@@ -80,6 +80,10 @@ spec:
             - "--probe-port"
             - "2703"
             - "--enable-workload-identity=true"
+            - "--endpoint"
+            - "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+            - "--jwt-svid-duration"
+            - "30m"
             - "-v"
             - "trace"
           ports:
@@ -90,8 +94,12 @@ spec:
               protocol: TCP
               name: probes-port
           env:
+          - name: AWS_ENDPOINT_URL_STS
+            value: "https://sts-alt-gamma.us-east-1.api.aws"
           - name: AWS_REGION
             value: "AWS_REGION_NAME"
+          - name: STS_SIGNING_REGION
+            value: "us-east-1"
           volumeMounts:
           - name: workload-identity-socket-dir
             mountPath: /var/run/secrets/pods.eks.amazonaws.com/workloadidentity
@@ -252,6 +260,10 @@ spec:
             - "--probe-port"
             - "2703"
             - "--enable-workload-identity=true"
+            - "--endpoint"
+            - "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+            - "--jwt-svid-duration"
+            - "30m"
             - "-v"
             - "trace"
             - "--rotate-credentials"
@@ -264,8 +276,12 @@ spec:
               protocol: TCP
               name: probes-port
           env:
+          - name: AWS_ENDPOINT_URL_STS
+            value: "https://sts-alt-gamma.us-east-1.api.aws"
           - name: AWS_REGION
             value: "AWS_REGION_NAME"
+          - name: STS_SIGNING_REGION
+            value: "us-east-1"
           volumeMounts:
           - name: workload-identity-socket-dir
             mountPath: /var/run/secrets/pods.eks.amazonaws.com/workloadidentity
@@ -429,6 +445,10 @@ spec:
             - "--probe-port"
             - "2703"
             - "--enable-workload-identity=true"
+            - "--endpoint"
+            - "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+            - "--jwt-svid-duration"
+            - "30m"
             - "-v"
             - "trace"
             - "--rotate-credentials"
@@ -441,8 +461,12 @@ spec:
               protocol: TCP
               name: probes-port
           env:
+          - name: AWS_ENDPOINT_URL_STS
+            value: "https://sts-alt-gamma.us-east-1.api.aws"
           - name: AWS_REGION
             value: "AWS_REGION_NAME"
+          - name: STS_SIGNING_REGION
+            value: "us-east-1"
           volumeMounts:
           - name: workload-identity-socket-dir
             mountPath: /var/run/secrets/pods.eks.amazonaws.com/workloadidentity
