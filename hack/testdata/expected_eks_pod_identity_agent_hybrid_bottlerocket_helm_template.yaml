@@ -78,6 +78,10 @@ spec:
             - "EKS_CLUSTER_NAME"
             - "--probe-port"
             - "2703"
+            - "--endpoint"
+            - "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+            - "--jwt-svid-duration"
+            - "30m"
             - "-v"
             - "trace"
           ports:
@@ -88,8 +92,12 @@ spec:
               protocol: TCP
               name: probes-port
           env:
+          - name: AWS_ENDPOINT_URL_STS
+            value: "https://sts-alt-gamma.us-east-1.api.aws"
           - name: AWS_REGION
             value: "AWS_REGION_NAME"
+          - name: STS_SIGNING_REGION
+            value: "us-east-1"
           volumeMounts:
           - mountPath: /var/lib/eks-pod-identity-agent
             name: jwk-cache
@@ -202,6 +210,10 @@ spec:
             - "EKS_CLUSTER_NAME"
             - "--probe-port"
             - "2703"
+            - "--endpoint"
+            - "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+            - "--jwt-svid-duration"
+            - "30m"
             - "-v"
             - "trace"
             - "--rotate-credentials"
@@ -214,8 +226,12 @@ spec:
               protocol: TCP
               name: probes-port
           env:
+          - name: AWS_ENDPOINT_URL_STS
+            value: "https://sts-alt-gamma.us-east-1.api.aws"
           - name: AWS_REGION
             value: "AWS_REGION_NAME"
+          - name: STS_SIGNING_REGION
+            value: "us-east-1"
           volumeMounts:
           - mountPath: /root/.aws
             name: aws-credentials

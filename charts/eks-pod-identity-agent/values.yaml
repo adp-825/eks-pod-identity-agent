@@ -111,6 +111,17 @@ affinity:
 agent:
   additionalArgs:
     "-v": "trace"
+    # INTEGRATION TESTING ONLY. The beta EKS Auth stack. This also sets
+    # EndpointOverridden, which skips service account token audience validation
+    # (internal/validation/claims_validation.go), so a token scoped to another
+    # consumer is accepted. Acceptable on a test cluster only.
+    "--endpoint": "https://lb-c02-pdx1.beta.us-west-2.auth.eks.aws.dev"
+    # INTEGRATION TESTING ONLY. The WorkloadSession is chained and so capped at 1h,
+    # and STS refuses a JWT-SVID outlasting the session that signed it
+    # (SessionDurationEscalationException), which the 1h default always does once
+    # any of the session is spent. Ask for less until the clamping question is
+    # settled.
+    "--jwt-svid-duration": "30m"
   advertiseProxyPort: true
   command: "['/go-runner', '/eks-pod-identity-agent', 'server']"
   livenessEndpoint: /healthz
@@ -134,6 +145,18 @@ clusterName: EKS_CLUSTER_NAME
 
 env:
   AWS_REGION: AWS_REGION_NAME
+  # INTEGRATION TESTING ONLY. The alt gamma STS stack. The SDK reads this in
+  # awssts.NewFromConfig's resolveBaseEndpoint, so it redirects only STS — the
+  # certificate, JWT and trust bundle calls — and leaves EKS Auth on its own
+  # endpoint. The node's cluster-auth token is held back from it in
+  # internal/kube/client.go.
+  AWS_ENDPOINT_URL_STS: https://sts-alt-gamma.us-east-1.api.aws
+  # INTEGRATION TESTING ONLY. That stack serves us-east-1 while the cluster is
+  # us-west-2. Overriding the endpoint does not move the signing region, and the
+  # stack rejects a us-west-2 credential scope with SignatureDoesNotMatch, so name
+  # the region it serves. Read only by the STS client, so EKS Auth keeps signing
+  # for the cluster's region. Remove with AWS_ENDPOINT_URL_STS.
+  STS_SIGNING_REGION: us-east-1
 
 fullnameOverride: "eks-pod-identity-agent"
 
